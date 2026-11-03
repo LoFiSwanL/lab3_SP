@@ -1,0 +1,70 @@
+<title>Mini-C · AST</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;font:15px system-ui;color:#1d2939;background:#f7f9fc}
+header{padding:20px 28px;background:white;border-bottom:1px solid #d8e0eb}
+h1{margin:0 0 8px;font-size:24px}p{margin:0;color:#526175}
+nav{padding:14px 28px;display:flex;gap:8px;align-items:center}
+button{font:inherit;padding:6px 14px;background:white;border:1px solid #bdc9d9;border-radius:6px;cursor:pointer}
+#viewport{height:calc(100vh - 170px);overflow:auto;margin:0 18px 18px;border:1px solid #d8e0eb;background:white;border-radius:10px}
+svg{display:block}path{fill:none;stroke:#9eafc5;stroke-width:1.5}
+g.node{cursor:pointer}rect{fill:#edf4ff;stroke:#90b4e8}g.leaf rect{fill:#edf9f3;stroke:#9bcab2}
+text{font:13px system-ui;fill:#1d2939;text-anchor:middle;pointer-events:none}
+.value{font:12px ui-monospace,monospace;fill:#335277}
+</style>
+<header><h1>Абстрактне синтаксичне дерево · Mini-C</h1>
+<p>Натисни вузол, щоб згорнути або розгорнути гілку. Наведи курсор, щоб побачити рядок коду.</p></header>
+<nav><button id="less" aria-label="Зменшити">−</button><button id="more" aria-label="Збільшити">+</button>
+<button id="fit">Вмістити</button><button id="reset">Розгорнути все</button><span id="count"></span></nav>
+<div id="viewport"><svg id="tree" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AST програми C"></svg></div>
+<script>
+const ast = JSON.parse(document.getElementById('ast-data').textContent);
+const svg = document.getElementById('tree');
+const ns = 'http://www.w3.org/2000/svg';
+let zoom = 1;
+function element(tag, attrs, parent = svg, text) {
+  const el = document.createElementNS(ns, tag);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+  if (text !== undefined) el.textContent = text;
+  parent.appendChild(el);
+  return el;
+}
+function draw() {
+  svg.replaceChildren();
+  let leaves = 0, depthMax = 0;
+  const nodes = [], edges = [];
+  function place(n, depth) {
+    n.y = 55 + depth * 100;
+    depthMax = Math.max(depthMax, depth);
+    const children = n.collapsed ? [] : n.children;
+    children.forEach(c => { place(c, depth + 1); edges.push([n, c]); });
+    n.x = children.length ? (children[0].x + children[children.length - 1].x) / 2 : 95 + leaves++ * 170;
+    nodes.push(n);
+  }
+  place(ast, 0);
+  const width = Math.max(600, leaves * 170 + 30), height = (depthMax + 1) * 100 + 20;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', width * zoom);
+  svg.setAttribute('height', height * zoom);
+  for (const [a, b] of edges) element('path', {d:`M${a.x},${a.y + 25} C${a.x},${a.y + 60} ${b.x},${b.y - 60} ${b.x},${b.y - 25}`});
+  for (const n of nodes) {
+    const group = element('g', {class:`node ${n.children.length ? '' : 'leaf'}`, transform:`translate(${n.x},${n.y})`});
+    element('title', {}, group, `Рядок ${n.line} · ${n.kind} ${n.value}`);
+    element('rect', {x:-73,y:-25,width:146,height:50,rx:8}, group);
+    element('text', {y:n.value ? -3 : 4}, group, n.kind + (n.collapsed ? ' [+]' : ''));
+    if (n.value) element('text', {y:15,class:'value'}, group, n.value);
+    group.onclick = () => { if(n.children.length) { n.collapsed = !n.collapsed; draw(); } };
+  }
+  document.getElementById('count').textContent = `Видимих вузлів: ${nodes.length}`;
+}
+document.getElementById('less').onclick = () => { zoom = Math.max(.3, zoom - .15); draw(); };
+document.getElementById('more').onclick = () => { zoom = Math.min(2, zoom + .15); draw(); };
+document.getElementById('fit').onclick = () => {
+  zoom = Math.min(1, (document.getElementById('viewport').clientWidth - 20) / svg.viewBox.baseVal.width); draw();
+};
+document.getElementById('reset').onclick = () => {
+  function expand(n) { n.collapsed = false; n.children.forEach(expand); }
+  expand(ast); zoom = 1; draw();
+};
+draw();
+</script></html>

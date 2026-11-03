@@ -1,0 +1,5 @@
+Синтаксис: OK
+Результат main: 120
+Python: results/factorial.py
+AST: results/ast.html
+120
